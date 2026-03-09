@@ -1,0 +1,24 @@
+{
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "module": "esnext", 
+    "moduleResolution": "bundler"
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "src-tauri",
+    "node_modules",
+    "dist",
+    "build",
+    "svelte.config.js",
+    "vite.config.ts"
+  ]
+}
