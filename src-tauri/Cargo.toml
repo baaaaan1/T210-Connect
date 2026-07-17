@@ -1,6 +1,6 @@
 [package]
 name = "t210-connect"
-version = "0.1.0"
+version = "1.0.0"
 description = "Serial port temperature and power monitor for ABToolkit T210 Solder Station"
 authors = ["Ilham Ramadan S. <ilhamrs019.all@gmail.com>"]
 license = "LicenseRef-Proprietary"

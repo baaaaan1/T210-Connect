@@ -1,39 +1,105 @@
 name: Release
 
-"on":
+on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
-  build-windows:
+  build-and-release:
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
+      # ── Checkout + Fetch all tags ────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Node.js
+      # ── Setup Node.js ────────────────────────────────────────────
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
 
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
-        run: npm run tauri build
+      # ── Setup Rust ───────────────────────────────────────────────
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
 
-      - name: Upload installer to GitHub Release
+      # ── Cache Rust dependencies ──────────────────────────────────
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ── Build Tauri ──────────────────────────────────────────────
+      - name: Build Tauri application
+        run: npm run tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # ── Generate release notes ───────────────────────────────────
+      - name: Generate release notes
+        id: changelog
+        shell: bash
+        run: |
+          # Dapatkan tag sebelumnya (jika ada)
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -n 2 | tail -n 1)
+
+          {
+            echo "## 📥 Download"
+            echo ""
+            echo "| File | Deskripsi |"
+            echo "|------|-----------|"
+            echo "| \`T210 Connect_${{ github.ref_name }}_x64-setup.exe\` | Windows Installer (NSIS) |"
+            echo "| \`t210-connect.exe\` | Portable executable |"
+            echo ""
+
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "---"
+              echo ""
+              echo "## 📋 Changelog since $PREVIOUS_TAG"
+              echo ""
+
+              echo "### ✨ Fitur Baru"
+              echo '```'
+              git log "$PREVIOUS_TAG..HEAD" --oneline --grep="^feat" -i --pretty=format:"- %s" || echo "(tidak ada)"
+              echo '```'
+              echo ""
+
+              echo "### 🐛 Perbaikan Bug"
+              echo '```'
+              git log "$PREVIOUS_TAG..HEAD" --oneline --grep="^fix" -i --pretty=format:"- %s" || echo "(tidak ada)"
+              echo '```'
+              echo ""
+
+              echo "### 🔧 Perubahan Lainnya"
+              echo '```'
+              git log "$PREVIOUS_TAG..HEAD" --oneline --grep="^feat\|^fix" -i --invert-grep --pretty=format:"- %s" || echo "(tidak ada)"
+              echo '```'
+            else
+              echo "🎉 Initial release of T210 Connect"
+            fi
+          } | sed 's/\${{ github.ref_name }}/${{ github.ref_name }}/g' > release-notes.md
+
+      # ── Create GitHub Release ────────────────────────────────────
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/nsis/*.exe
-          generate_release_notes: true
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/t210-connect.exe
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
