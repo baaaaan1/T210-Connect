@@ -1,4 +1,4 @@
-# T210 Connect - Serial Port Temperature/Power Monitor
+# T210 Connect — Serial Port Temperature/Power Monitor
 
 Desktop monitoring application for ABToolkit T210 solder station (STM32F103CB/C8T6).  
 Real-time temperature and power tracking via serial communication with dual-axis charting and responsive UI.
@@ -33,9 +33,9 @@ actualTemp,setpoint,power,status,buzzer,standbyState,standbyTimer
 | `actualTemp` | float | 0-500 | °C | Actual measured temperature |
 | `setpoint` | float | 0-500 | °C | Target setpoint (shown in gauge) |
 | `power` | float | 0-100 | % | Heater power / PWM duty |
-| `status` | int | 0,1,2,10,11,12 | - | Device condition code |
-| `buzzer` | int | 0/1 | - | Buzzer state |
-| `standbyState` | int | 0/1 | - | Standby state |
+| `status` | int | 0,1,2,10,11,12 | — | Device condition code |
+| `buzzer` | int | 0/1 | — | Buzzer state |
+| `standbyState` | int | 0/1 | — | Standby state |
 | `standbyTimer` | int | 0-300 | s | Standby countdown timer |
 
 ---
@@ -66,7 +66,7 @@ This allows schema expansion by appending new fields at the end without breaking
 
 ---
 
-## 📦 Build & Run
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -93,10 +93,68 @@ npm run check
 npm run tauri build
 ```
 
-Output artifacts:
+Output artifacts (located in `src-tauri/target/release/bundle/`):
 
-- `src-tauri/target/release/bundle/nsis/T210 Connect_0.1.0_x64-setup.exe`
-- `src-tauri/target/release/t210-connect.exe`
+- `nsis/T210 Connect_{version}_x64-setup.exe` — Windows installer
+- `t210-connect.exe` — Standalone executable
+
+> **Note:** `{version}` is taken from `package.json` at build time.
+
+---
+
+## 🔄 Version Management
+
+The **single source of truth** for the app version is **`package.json`**.
+
+### How to update the version
+
+```bash
+# Automatic — updates all files:
+npm version patch   # 0.1.0 → 0.1.1
+npm version minor   # 0.1.0 → 0.2.0
+npm version major   # 0.1.0 → 1.0.0
+
+# Or specify an exact version:
+npm version 0.2.0
+```
+
+After `npm version` finishes, the **`postversion`** hook automatically runs `node scripts/sync-version.js`, which syncs the version to:
+
+| File | Role |
+|------|------|
+| `package.json` | Single source of truth |
+| `src-tauri/tauri.conf.json` | Tauri app config (runtime version) |
+| `src-tauri/Cargo.toml` | Rust crate version |
+
+### Manual sync
+
+```bash
+npm run version:sync
+```
+
+---
+
+## 📁 Project Structure
+
+```
+T210 Connect/
+├── package.json              # Node deps + version source of truth
+├── scripts/
+│   └── sync-version.js       # Version sync script
+├── src/                      # SvelteKit frontend
+│   ├── app.html              # HTML shell
+│   ├── global.d.ts           # Global type declarations
+│   ├── lib/                  # Shared components / assets
+│   └── routes/
+│       └── +page.svelte      # Main UI (single-page)
+├── src-tauri/                # Tauri / Rust backend
+│   ├── Cargo.toml            # Rust deps + version
+│   ├── tauri.conf.json       # Tauri config + version
+│   └── src/
+│       └── lib.rs            # Serial port logic + Tauri commands
+├── static/                   # Static assets (icons, fonts)
+└── LICENSE
+```
 
 ---
 
@@ -113,11 +171,7 @@ Current app icon files are stored in:
 
 ## 🔐 License
 
-This software is **proprietary**.
-
-- ✅ Allowed: personal/internal **non-commercial** use
-- ❌ Not allowed: modification / derivative works
-- ❌ Not allowed: commercial use, selling, sublicensing
+This project is licensed under the **MIT License**.
 
 See `LICENSE` for full legal terms.
 
@@ -129,4 +183,3 @@ See `LICENSE` for full legal terms.
 - Tauri 2 (Rust backend)
 - `serialport` crate
 - `uPlot` charting
-```

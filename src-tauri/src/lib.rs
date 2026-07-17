@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 // Supported baudrates untuk auto-detection
@@ -11,6 +12,53 @@ const BAUDRATE_TEST_TIMEOUT: Duration = Duration::from_millis(100);
 // Global state untuk menyimpan status koneksi agar bisa dihentikan sewaktu-waktu
 struct AppState {
     is_connected: Arc<AtomicBool>,
+}
+
+#[derive(Serialize)]
+struct PortInfo {
+    port_name: String,
+    display_name: String,
+    port_type: String,
+    vid: Option<u16>,
+    pid: Option<u16>,
+    serial_number: Option<String>,
+    manufacturer: Option<String>,
+    product: Option<String>,
+}
+
+fn format_usb_display_name(
+    port_name: &str,
+    manufacturer: &Option<String>,
+    product: &Option<String>,
+) -> String {
+    let raw_device_name = match (product.as_deref(), manufacturer.as_deref()) {
+        (Some(product), _) if !product.trim().is_empty() => product.trim().to_string(),
+        (_, Some(manufacturer)) if !manufacturer.trim().is_empty() => manufacturer.trim().to_string(),
+        (None, None) => "USB Serial Device".to_string(),
+        _ => "USB Serial Device".to_string(),
+    };
+
+    let compact_device_name = raw_device_name
+        .replace("STMicroelectronics", "STM")
+        .replace("Virtual COM Port", "VCP")
+        .replace("USB-SERIAL", "USB Serial")
+        .replace("USB Serial Device", "USB Serial")
+        .replace("USB2.0-Serial", "USB Serial")
+        .replace("USB to UART", "USB UART")
+        .replace("Silicon Labs", "SiLabs")
+        .replace("Communications", "Comms");
+
+    let short_device_name = if compact_device_name.to_ascii_uppercase().contains("CH340") {
+        "CH340".to_string()
+    } else if compact_device_name.to_ascii_uppercase().contains("CH341") {
+        "CH341".to_string()
+    } else if compact_device_name.len() > 22 {
+        format!("{}...", compact_device_name.chars().take(22).collect::<String>())
+    } else {
+        compact_device_name
+    };
+
+    format!("{} — {}", port_name, short_device_name)
 }
 
 /// Coba deteksi baudrate dengan mengecek apakah ada valid data stream
@@ -55,14 +103,67 @@ fn try_detect_baudrate(port_name: &str) -> Option<u32> {
 }
 
 #[tauri::command]
-fn get_ports() -> Vec<String> {
-    let mut port_names = Vec::new();
+fn get_ports() -> Vec<PortInfo> {
+    let mut port_infos = Vec::new();
     if let Ok(ports) = serialport::available_ports() {
         for port in ports {
-            port_names.push(port.port_name);
+            let port_name = port.port_name;
+
+            let port_info = match port.port_type {
+                serialport::SerialPortType::UsbPort(usb_info) => {
+                    let display_name = format_usb_display_name(
+                        &port_name,
+                        &usb_info.manufacturer,
+                        &usb_info.product,
+                    );
+
+                    PortInfo {
+                        port_name,
+                        display_name,
+                        port_type: "USB".to_string(),
+                        vid: Some(usb_info.vid),
+                        pid: Some(usb_info.pid),
+                        serial_number: usb_info.serial_number,
+                        manufacturer: usb_info.manufacturer,
+                        product: usb_info.product,
+                    }
+                }
+                serialport::SerialPortType::BluetoothPort => PortInfo {
+                    display_name: format!("{} — Bluetooth", port_name),
+                    port_name,
+                    port_type: "Bluetooth".to_string(),
+                    vid: None,
+                    pid: None,
+                    serial_number: None,
+                    manufacturer: None,
+                    product: None,
+                },
+                serialport::SerialPortType::PciPort => PortInfo {
+                    display_name: format!("{} — PCI", port_name),
+                    port_name,
+                    port_type: "PCI".to_string(),
+                    vid: None,
+                    pid: None,
+                    serial_number: None,
+                    manufacturer: None,
+                    product: None,
+                },
+                serialport::SerialPortType::Unknown => PortInfo {
+                    display_name: format!("{} — Serial", port_name),
+                    port_name,
+                    port_type: "Unknown".to_string(),
+                    vid: None,
+                    pid: None,
+                    serial_number: None,
+                    manufacturer: None,
+                    product: None,
+                },
+            };
+
+            port_infos.push(port_info);
         }
     }
-    port_names
+    port_infos
 }
 
 #[tauri::command]

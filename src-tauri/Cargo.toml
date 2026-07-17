@@ -2,7 +2,8 @@
 name = "t210-connect"
 version = "0.1.0"
 description = "Serial port temperature and power monitor for ABToolkit T210 Solder Station"
-authors = ["baaaaan1"]
+authors = ["Ilham Ramadan S. <ilhamrs019.all@gmail.com>"]
+license = "LicenseRef-Proprietary"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
